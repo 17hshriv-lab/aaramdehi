@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { IoCloseOutline, IoTrashOutline, IoAddOutline, IoRemoveOutline } from "react-icons/io5";
+import { Link } from 'react-router-dom';
 
 // ===== CART DRAWER COMPONENT =====
 // Yeh component right side se slide out hota hai jab cart icon click hote ho
@@ -130,9 +131,13 @@ const CartDrawer = ({ isOpen, onClose }) => {
             </div>
 
             <div className="flex flex-col gap-2">
-              <button className="w-full bg-orange-500 text-white py-3 rounded font-bold uppercase text-[12px] tracking-widest hover:bg-orange-600 shadow-lg shadow-orange-100 transition-all">
+              <Link 
+                to="/checkout"
+                onClick={onClose}
+                className="w-full bg-orange-500 text-white py-3 rounded font-bold uppercase text-[12px] tracking-widest hover:bg-orange-600 shadow-lg shadow-orange-100 transition-all text-center block"
+              >
                 Proceed to Checkout
-              </button>
+              </Link>
               <button onClick={onClose} className="w-full text-gray-500 py-2 text-[11px] uppercase font-bold hover:text-gray-800">
                 Continue Shopping
               </button>
