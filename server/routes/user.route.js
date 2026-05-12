@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { 
     uploadAvatarController, 
-    loginController // Keeping login here just in case, but clean is better
-} from '../controllers/user.controller.js';
+} from '../controllers/user.controller.js'; // loginController is not used here
+import { getUserDetailsController } from '../controllers/user.controller.js'; // नया कंट्रोलर इम्पोर्ट करें
 
 // ✅ Fix: Named import use kiya hai kyunki auth.middleware.js mein 'export const' hai
 import { isAuthenticatedUser } from '../middleware/auth.middleware.js';
@@ -37,6 +37,9 @@ const authLimiter = rateLimit({
 // Avatar Image Upload (Multer + Cloudinary)
 // ✅ Fix: 'auth' ki jagah 'isAuthenticatedUser' use kiya gaya hai
 userRouter.put('/upload-avatar', isAuthenticatedUser, upload.single('avatar'), uploadAvatarController);
+
+// 🛡️ AdminRoute के लिए: यूजर डिटेल्स और रोल वेरीफाई करें
+userRouter.get('/details', isAuthenticatedUser, getUserDetailsController);
 
 // User Logout
 userRouter.get('/logout', isAuthenticatedUser, (req, res) => {

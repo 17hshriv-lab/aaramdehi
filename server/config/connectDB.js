@@ -2,8 +2,13 @@ import mongoose from "mongoose";
 
 const connectDB = async () => {
     try {
-        const url = process.env.MONGODB_URI;
-        console.log("🔗 Connection Attempting with URL:", url.split('@')[1]); // Security ke liye password hide karke log karega
+        // Force 127.0.0.1 if using localhost to avoid DNS issues in some Node versions
+        let url = process.env.MONGODB_URI;
+        if (url.includes('localhost')) {
+            url = url.replace('localhost', '127.0.0.1');
+        }
+        
+        console.log("🔗 Database Connection Attempt...");
 
         await mongoose.connect(url, {
             serverSelectionTimeoutMS: 5000,

@@ -4,12 +4,12 @@ const paymentSchema = new mongoose.Schema(
   {
     orderId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Order",
+      ref: "Order", // ✅ Order model ka naam 'Order' hai
       required: [true, "Order ID is required"],
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "User", // ✅ User model ka naam 'User' hai
       required: true,
     },
     paymentMethod: {

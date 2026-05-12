@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dns from 'node:dns';
 
-// DNS Order fix for MongoDB/Localhost connectivity issues
+// ✅ Fix for local connectivity issues (prevents ERR_CONNECTION_REFUSED)
 dns.setDefaultResultOrder('ipv4first');
 
 // --- .env configuration ---
@@ -14,6 +14,7 @@ dotenv.config({ path: path.resolve(__dirname, './.env') });
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
 import morgan from "morgan";
 import helmet from "helmet";
 import connectDB from './config/connectDB.js';
@@ -22,7 +23,6 @@ import connectDB from './config/connectDB.js';
 import authRouter from './routes/auth.route.js';
 import userRouter from './routes/user.route.js';
 import productRouter from './routes/product.route.js';
-import { getDashboardStats } from './controllers/product.controller.js'; // Controller import karein
 import seoRouter from './routes/seo.route.js';
 import bannerRouter from './routes/banner.route.js';
 import categoryRouter from './routes/category.route.js';
@@ -33,8 +33,23 @@ import paymentRouter from './routes/payment.route.js';
 import refundRouter from './routes/refund.route.js';
 import settingsRouter from './routes/settings.route.js';
 import teamRouter from './routes/team.route.js';
+import orderRouter from './routes/order.route.js';
 
 const app = express();
+
+// 🛡️ Security: Admin-Specific Rate Limiter
+// Brute force attacks on admin panels ko rokne ke liye
+const adminLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) ? 2000 : 100,
+    message: {
+        success: false,
+        message: "Too many requests. Please try again later.",
+        error: true
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 // --- Middlewares ---
 // CORS Configuration - Accept both 5173 and 5174 in development
@@ -43,10 +58,16 @@ const corsOptions = {
         const allowedOrigins = [
             'http://localhost:5173',
             'http://localhost:5174',
-            process.env.FRONTEND_URL
+            'https://aaramdehi.co.in',
+            process.env.FRONTEND_URL // Vercel Dashboard mein ise bhi set karein
         ].filter(Boolean);
         
-        if (!origin || allowedOrigins.includes(origin)) {
+        // ✅ Improved normalization to handle trailing slashes and casing
+        const normalize = (url) => url ? url.replace(/\/$/, "").toLowerCase() : null;
+        const normalizedOrigin = normalize(origin);
+        const normalizedAllowed = allowedOrigins.map(normalize);
+
+        if (!origin || normalizedAllowed.includes(normalizedOrigin)) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
@@ -70,19 +91,19 @@ app.use(helmet({
 // --- API Routes ---
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
-app.use("/api/products", productRouter);
+
+// Apply Admin Limiter to management routes
+app.use("/api/products", adminLimiter, productRouter);
 app.use("/api/seo", seoRouter);
+app.use("/api/order", orderRouter); // Removing strict limiter and fixing pluralization to match frontend
 
-// ✅ Admin Dashboard Stats Route
-app.get("/api/admin/stats", getDashboardStats); 
-
-app.use("/api/banners", bannerRouter);
-app.use("/api/categories", categoryRouter);
-app.use("/api/coupons", couponRouter);
+app.use("/api/banners", adminLimiter, bannerRouter);
+app.use("/api/categories", adminLimiter, categoryRouter);
+app.use("/api/coupons", adminLimiter, couponRouter);
 app.use("/api/appointments", appointmentRouter);
 app.use("/api/analytics", analyticsRouter);
-app.use("/api/payments", paymentRouter);
-app.use("/api/refunds", refundRouter);
+app.use("/api/payments", adminLimiter, paymentRouter);
+app.use("/api/refunds", adminLimiter, refundRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/team", teamRouter);
 
@@ -94,6 +115,9 @@ app.get("/", (req, res) => {
 // --- Global Error Handler ---
 app.use((err, req, res, next) => {
     const statusCode = err.statusCode || 500;
+    if (process.env.NODE_ENV === 'production') {
+        console.error(`[Error]: ${err.message}`, err.stack);
+    }
     res.status(statusCode).json({
         success: false,
         message: err.message || "Internal Server Error",
@@ -104,19 +128,15 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 8000;
 
 // Database Connection & Server Start
-connectDB().then(() => {
-    console.log("--- ENV CHECK ---");
-    console.log("Email User:", process.env.EMAIL_USER); 
-    console.log("Mongo URI:", process.env.MONGODB_URI ? "Found" : "Not Found");
-    console.log("------------------");
-
-    app.listen(PORT, () => {
-        console.log(`✅ MongoDB Connected!`);
-        console.log(`🚀 Server live at: http://localhost:${PORT}`);
+connectDB()
+    .then(() => {
+        console.log("✅ MongoDB Connected!");
+        app.listen(PORT, () => {
+            console.log(`🚀 Server live at: http://localhost:${PORT}`);
+        });
+    })
+    .catch((err) => {
+        console.error("❌ MongoDB Connection Error:", err);
     });
-}).catch((err) => {
-    console.error("❌ Database Connection Failed:", err);
-    process.exit(1);
-});
 
 export default app;

@@ -79,17 +79,17 @@ const couponSchema = new mongoose.Schema(
     usedBy: [
       {
         userId: mongoose.Schema.Types.ObjectId,
-        usageCount: { type: Number, default: 0 },
+        usageCount: { type: Number, default: 0 }
       },
     ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "User", // ✅ User model ka naam 'User' hai
       required: true,
     },
     lastModifiedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "User", // ✅ User model ka naam 'User' hai
       default: null,
     },
   },

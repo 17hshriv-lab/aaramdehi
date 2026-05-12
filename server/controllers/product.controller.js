@@ -41,13 +41,15 @@ export const createProduct = async (req, res) => {
 
         // Handle image upload (Using Buffer for Streams)
         let images = [];
-        if (req.file) {
-            const uploadResult = await uploadImageCloudinary(req.file.buffer);
-            if (uploadResult.success) {
-                images = [{
-                    url: uploadResult.url,
-                    alt: name
-                }];
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                const uploadResult = await uploadImageCloudinary(file.buffer);
+                if (uploadResult.success) {
+                    images.push({
+                        url: uploadResult.url,
+                        alt: name
+                    });
+                }
             }
         }
 
@@ -63,7 +65,7 @@ export const createProduct = async (req, res) => {
             sellingPrice: Number(sellingPrice),
             discountPercent: Number(discountPercent) || 0,
             stock: Number(stock),
-            sku: sku || slug,
+                sku: sku || `SKU-${Date.now()}-${slug.slice(0,5)}`,
             images,
             thumbnail: images.length > 0 ? images[0].url : "",
             specifications: (specifications && typeof specifications === 'string' && specifications.startsWith('{')) ? JSON.parse(specifications) : {},
@@ -147,13 +149,39 @@ export const getProductById = async (req, res) => {
 export const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
-        const updateData = { ...req.body };
+        const { 
+            name, tags, specifications, seoKeywords, ...rest 
+        } = req.body;
+
+        const updateData = { 
+            ...rest,
+            name
+        };
         
-        if (req.file) {
-            const uploadResult = await uploadImageCloudinary(req.file.buffer);
-            if (uploadResult.success) {
-                updateData.images = [{ url: uploadResult.url, alt: updateData.name || "product" }];
-                updateData.thumbnail = uploadResult.url;
+        // Handle parsing of stringified fields from FormData
+        if (tags) {
+            updateData.tags = (typeof tags === 'string' && tags.trim()) ? tags.split(',').map(t => t.trim()) : tags;
+        }
+        if (seoKeywords) {
+            updateData.seoKeywords = (typeof seoKeywords === 'string' && seoKeywords.trim()) ? seoKeywords.split(',').map(k => k.trim()) : seoKeywords;
+        }
+        if (specifications && typeof specifications === 'string' && specifications.startsWith('{')) {
+            updateData.specifications = JSON.parse(specifications);
+        }
+
+        if (req.files && req.files.length > 0) {
+            const newImages = [];
+            for (const file of req.files) {
+                const uploadResult = await uploadImageCloudinary(file.buffer);
+                if (uploadResult.success) {
+                    newImages.push({ url: uploadResult.url, alt: name || "product image" });
+                }
+            }
+            
+            if (newImages.length > 0) {
+                // Purani images ke sath naye images ko combine karne ke liye logic (optional)
+                updateData.images = newImages; 
+                updateData.thumbnail = newImages[0].url;
             }
         }
 

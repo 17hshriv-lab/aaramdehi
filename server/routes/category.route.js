@@ -15,11 +15,12 @@ const router = express.Router();
 // Public Routes
 router.get("/get-all", getAllCategories);
 router.get("/get-active", getActiveCategories);
+router.get("/active", getActiveCategories); // ✅ Added alias for consistency
 router.get("/get/:id", getCategoryById);
 
 // Admin Only Routes (With Image Upload)
-router.post("/create", isAuthenticatedUser, isAdmin, upload.array("images", 5), createCategory);
-router.put("/update/:id", isAuthenticatedUser, isAdmin, upload.array("images", 5), updateCategoryController);
+router.post("/create", isAuthenticatedUser, isAdmin, upload.single("icon"), createCategory);
+router.put("/update/:id", isAuthenticatedUser, isAdmin, upload.single("icon"), updateCategoryController);
 router.delete("/delete/:id", isAuthenticatedUser, isAdmin, deleteCategory);
 
 export default router;

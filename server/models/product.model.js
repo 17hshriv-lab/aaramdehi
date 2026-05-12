@@ -140,12 +140,12 @@ const productSchema = new mongoose.Schema({
     // Admin & Ownership
     createdBy: {
         type: mongoose.Schema.ObjectId,
-        ref: "User",
+        ref: "User", // ✅ User model ka naam 'User' hai
         required: true
     },
     lastModifiedBy: {
         type: mongoose.Schema.ObjectId,
-        ref: "User"
+        ref: "User" // ✅ User model ka naam 'User' hai
     },
 
 }, {

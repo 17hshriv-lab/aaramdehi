@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const cartProductSchema = new mongoose.Schema({
     productId : {
         type : mongoose.Schema.ObjectId,
-        ref : 'product' // Ye aapke Product model ka naam hona chahiye
+        ref : 'Product'
     },
     quantity : {
         type : Number,
@@ -11,7 +11,7 @@ const cartProductSchema = new mongoose.Schema({
     },
     userId : {
         type : mongoose.Schema.ObjectId,
-        ref : 'User' // Ye aapke User model ka naam hona chahiye
+        ref : 'User'
     }
 }, {
     timestamps : true

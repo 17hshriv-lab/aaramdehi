@@ -54,7 +54,7 @@ const seoSchema = new mongoose.Schema({
     // For tracking
     createdBy: {
         type: mongoose.Schema.ObjectId,
-        ref: "User"
+        ref: "User" // ✅ User model ka naam 'User' hai
     },
 
 }, {

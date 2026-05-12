@@ -23,10 +23,10 @@ const productRouter = Router();
 productRouter.get('/admin/stats', isAuthenticatedUser, isAdmin, getDashboardStats);
 
 // Add new product
-productRouter.post('/create', isAuthenticatedUser, isAdmin, upload.single('image'), createProduct);
+productRouter.post('/create', isAuthenticatedUser, isAdmin, upload.array('images', 10), createProduct);
 
 // Update product
-productRouter.put('/:id', isAuthenticatedUser, isAdmin, upload.single('image'), updateProduct);
+productRouter.put('/:id', isAuthenticatedUser, isAdmin, upload.array('images', 10), updateProduct);
 
 // Delete product
 productRouter.delete('/:id', isAuthenticatedUser, isAdmin, deleteProduct);

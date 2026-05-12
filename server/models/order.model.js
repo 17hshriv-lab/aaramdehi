@@ -1,51 +1,61 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const orderSchema = new mongoose.Schema({
-    userId : {
-        type : mongoose.Schema.ObjectId,
-        ref : 'User'
+    userId: {
+        type: mongoose.Schema.ObjectId,
+        ref: "User", // ✅ User model ka naam 'User' hai
+        required: true
     },
-    orderId : {
-        type : String,
-        required : [true, "Provide orderId"],
-        unique : true
+    orderNumber: {
+        type: String,
+        required: true,
+        unique: true // ✅ orderNumber ka unique index
     },
-    productId : {
-        type : mongoose.Schema.ObjectId,
-        ref : "product"
+    orderItems: [{
+        productId: {
+            type: mongoose.Schema.ObjectId,
+            ref: "Product", // ✅ Product model ka naam 'Product' hai
+            required: true
+        },
+        name: String,
+        quantity: {
+            type: Number,
+            required: true
+        },
+        price: {
+            type: Number,
+            required: true
+        },
+        image: String
+    }],
+    shippingAddress: {
+        fullName: String,
+        address: String,
+        city: String,
+        postalCode: String,
+        mobile: String
     },
-    product_details : {
-        name : String,
-        image : Array,
+    paymentMethod: {
+        type: String,
+        required: [true, "Payment method is required"],
+        enum: ['cod', 'card', 'emi', 'netbanking', 'upi'] // सभी संभावित पेमेंट मेथड्स
     },
-    paymentId : {
-        type : String,
-        default : ""
+    paymentStatus: {
+        type: String,
+        enum: ['Pending', 'Completed', 'Failed'],
+        default: 'Pending'
     },
-    payment_status : {
-        type : String,
-        default : ""
+    totalAmount: {
+        type: Number,
+        required: true
     },
-    delivery_address : {
-        type : mongoose.Schema.ObjectId,
-        ref : 'address'
-    },
-    subTotalAmt : {
-        type : Number,
-        default : 0
-    },
-    totalAmt : {
-        type : Number,
-        default : 0
-    },
-    invoice_receipt : {
-        type : String,
-        default : ""
+    orderStatus: {
+        type: String,
+        enum: ['Processing', 'Shipped', 'Delivered', 'Cancelled'],
+        default: 'Processing'
     }
 }, {
-    timestamps : true
+    timestamps: true
 });
 
-const OrderModel = mongoose.model('order', orderSchema);
-
-export default OrderModel;
+export default mongoose.model("Order", orderSchema);

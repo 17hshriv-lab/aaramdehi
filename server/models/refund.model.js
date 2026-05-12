@@ -4,17 +4,17 @@ const refundSchema = new mongoose.Schema(
   {
     orderId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Order",
+      ref: "Order", // ✅ Order model ka naam 'Order' hai
       required: [true, "Order ID is required"],
     },
     paymentId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Payment",
+      ref: "Payment", // ✅ Payment model ka naam 'Payment' hai
       required: [true, "Payment ID is required"],
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "User", // ✅ User model ka naam 'User' hai
       required: true,
     },
     refundAmount: {
@@ -60,7 +60,7 @@ const refundSchema = new mongoose.Schema(
     },
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "User", // ✅ User model ka naam 'User' hai
       default: null,
     },
     rejectionReason: {

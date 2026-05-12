@@ -22,7 +22,7 @@ const bannerSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ["hero", "promotional", "seasonal", "category", "product"],
+      enum: ["hero", "promotional", "seasonal", "category", "product", "bedroom"], // 'bedroom' yahan add karein
       default: "promotional",
     },
     position: {
@@ -48,12 +48,12 @@ const bannerSchema = new mongoose.Schema(
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "User", // ✅ User model ka naam 'User' hai
       required: true,
     },
     lastModifiedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "User", // ✅ User model ka naam 'User' hai
       default: null,
     },
   },

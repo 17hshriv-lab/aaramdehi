@@ -1,5 +1,6 @@
 import Category from '../models/category.model.js';
 import Product from '../models/product.model.js'; // To update product categories on delete
+import { uploadImageCloudinary } from "../utils/uploadImageCloudinary.js";
 import slugify from 'slugify'; // npm install slugify
 
 // Get all categories
@@ -71,7 +72,8 @@ export const getCategoryById = async (req, res) => {
 // Create a new category
 export const createCategory = async (req, res) => {
   try {
-    const { name, description, isActive } = req.body;
+    const { name, description, isActive, icon } = req.body;
+    let finalIcon = icon; // डिफ़ॉल्ट रूप से इमोजी
 
     if (!name) {
       return res.status(400).json({ success: false, message: 'Category name is required' });
@@ -82,11 +84,23 @@ export const createCategory = async (req, res) => {
       return res.status(409).json({ success: false, message: 'Category with this name already exists' });
     }
 
+    // 🖼️ अगर इमेज फाइल अपलोड हुई है
+    if (req.file) {
+        const uploadResult = await uploadImageCloudinary(req.file.buffer);
+        if (uploadResult.success) {
+            finalIcon = uploadResult.url;
+        } else {
+            return res.status(500).json({ success: false, message: "Image upload failed" });
+        }
+    }
+
     const newCategory = new Category({
       name,
       slug: slugify(name, { lower: true, strict: true }),
       description,
-      isActive: isActive !== undefined ? isActive : true,
+      icon: finalIcon,
+      // FormData में boolean स्ट्रिंग बन जाता है, उसे ठीक करें
+      isActive: isActive === 'true' || isActive === true,
     });
 
     await newCategory.save();

@@ -96,7 +96,7 @@ const analyticsSchema = new mongoose.Schema(
     },
     recordedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "User", // ✅ User model ka naam 'User' hai
       default: null,
     },
   },
