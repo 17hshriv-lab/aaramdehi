@@ -2,11 +2,12 @@
   "version": 2,
   "builds": [
     { "src": "backend/server.js", "use": "@vercel/node" },
-    { "src": "Aaramdehi/package.json", "use": "@vercel/static-build" }
+    { "src": "Aaramdehi/package.json", "use": "@vercel/static-build" },
+    { "src": "my_search_engine/main.py", "use": "@vercel/python" }
   ],
   "routes": [
     {
-      "src": "/api/search/(.*)",
+      "src": "/api/search",
       "dest": "my_search_engine/main.py" 
     },
     {

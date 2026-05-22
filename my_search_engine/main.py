@@ -29,46 +29,38 @@ app.add_middleware(
 )
 
 
-def resolve_service_account_path():
-    env_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-    search_paths = []
-    if env_path:
-        search_paths.append(env_path)
-
-    base_dir = os.path.dirname(__file__)
-    search_paths.extend([
-        os.path.join(base_dir, 'serviceAccountKey.json'),
-        os.path.normpath(os.path.join(base_dir, '..', 'server', 'config', 'serviceAccountKey.json')),
-        os.path.normpath(os.path.join(base_dir, '..', 'server', 'aaramdehi-91f82-firebase-adminsdk-fbsvc-a144c1cbb1.json')),
-    ])
-
-    for candidate in search_paths:
-        if candidate and os.path.exists(candidate):
-            logger.info('Found Firebase credential file at %s', candidate)
-            return candidate
-
-    if env_path:
-        logger.warning('GOOGLE_APPLICATION_CREDENTIALS=%s was set but the file was not found.', env_path)
-    return None
-
-
 def init_firebase():
     if not FIREBASE_AVAILABLE:
         logger.warning('firebase-admin is not installed; Firestore support is disabled.')
         return None
 
-    cred_path = resolve_service_account_path()
-    if not cred_path:
-        logger.warning('Firebase service account key not found; using fallback catalog.')
-        return None
-
     if not firebase_admin._apps:
-        cred = credentials.Certificate(cred_path)
+        # ✅ Vercel Environment Variables support
+        if os.getenv('FIREBASE_PRIVATE_KEY'):
+            logger.info('Using Firebase credentials from environment variables')
+            cred = credentials.Certificate({
+                "type": "service_account",
+                "project_id": os.getenv('FIREBASE_PROJECT_ID'),
+                "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+                "private_key": os.getenv('FIREBASE_PRIVATE_KEY').replace('\\n', '\n'),
+                "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
+                "token_uri": "https://oauth2.googleapis.com/token",
+            })
+        else:
+            # Fallback for local development
+            base_dir = os.path.dirname(__file__)
+            cred_path = os.path.join(base_dir, 'serviceAccountKey.json')
+            if os.path.exists(cred_path):
+                logger.info('Using Firebase credential file at %s', cred_path)
+                cred = credentials.Certificate(cred_path)
+            else:
+                logger.warning('Firebase credentials not found; using fallback catalog.')
+                return None
+
         # ✅ Correctly initialize Realtime Database with its URL
-        firebase_admin.initialize_app(cred, {
-            'databaseURL': 'https://aaramdehi-91f82-default-rtdb.firebaseio.com/'
-        })
-        logger.info('Initialized Firebase Admin SDK using %s', cred_path)
+        db_url = os.getenv('FIREBASE_DATABASE_URL', 'https://aaramdehi-91f82-default-rtdb.firebaseio.com/')
+        firebase_admin.initialize_app(cred, {'databaseURL': db_url})
+        logger.info('Initialized Firebase Admin SDK')
 
     return True
 

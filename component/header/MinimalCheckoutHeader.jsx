@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { IoSearchOutline, IoPersonOutline, IoEllipsisVerticalOutline, IoCartOutline, IoCheckmarkOutline, IoChevronDown } from "react-icons/io5";
+import { useCart } from '../../src/hooks/useCart';
 import Badge from '@mui/material/Badge';
 import { styled } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
@@ -19,7 +20,7 @@ const StyledBadge = styled(Badge)(({ theme }) => ({
 
 const MinimalCheckoutHeader = ({ currentStep = 2 }) => {
   const navigate = useLocation();
-  const [cartCount, setCartCount] = useState(0);
+  const { cartCount } = useCart();
   const [searchValue, setSearchValue] = useState('');
   const [userProfile, setUserProfile] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -35,18 +36,7 @@ const MinimalCheckoutHeader = ({ currentStep = 2 }) => {
     });
   }, []);
 
-  // Update cart count
-  useEffect(() => {
-    const updateCartCount = () => {
-      const cart = JSON.parse(localStorage.getItem('cart')) || [];
-      setCartCount(cart.length);
-    };
-
-    updateCartCount();
-    window.addEventListener('cartUpdated', updateCartCount);
-
-    return () => window.removeEventListener('cartUpdated', updateCartCount);
-  }, []);
+  // ✅ Manual updateCartCount removed. cartCount is now live from useCart().
 
   // Handle search
   const handleSearch = (e) => {

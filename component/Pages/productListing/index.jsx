@@ -6,7 +6,7 @@ import Stack from '@mui/material/Stack';
 import { AiFillStar, AiOutlineHeart, AiFillHeart, AiOutlineEye } from 'react-icons/ai';
 import { FiShoppingCart } from 'react-icons/fi'; 
 import { BsLightningCharge } from 'react-icons/bs'; 
-import { ALL_PRODUCTS_DATA } from '../../../src/data/products';
+import { ALL_PRODUCTS_DATA } from '../../../src/data/products'; // ✅ NOTE: In a real app, this should come from an API call
 import { addToRecentlyViewed } from '../../../src/data/recentlyViewedUtils';
 import { useCart } from '../../../src/hooks/useCart';
 
