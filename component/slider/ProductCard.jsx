@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FiHeart, FiShoppingCart } from 'react-icons/fi';
 import { IoHeart } from 'react-icons/io5';
 
+const PLACEHOLDER_IMAGE = "https://placehold.co/400x400?text=Product+Not+Found";
+
 const ProductCard = ({ product, onOpenModal }) => {
   const [isAdded, setIsAdded] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
@@ -92,7 +94,12 @@ const ProductCard = ({ product, onOpenModal }) => {
       </button>
 
       <div className="relative aspect-square mb-4 flex items-center justify-center p-2 bg-gray-50/10 rounded">
-        <img src={product.image} alt={product.name} className="max-w-full max-h-full object-contain transform group-hover:scale-105 transition-all duration-500" />
+        <img 
+          src={product.image || PLACEHOLDER_IMAGE} 
+          onError={(e) => { e.target.src = PLACEHOLDER_IMAGE; }}
+          alt={product.name} 
+          className="max-w-full max-h-full object-contain transform group-hover:scale-105 transition-all duration-500" 
+        />
       </div>
 
       <div className="flex flex-col flex-grow text-left">

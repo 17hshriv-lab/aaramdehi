@@ -10,7 +10,7 @@
 - ✅ `PORT=8000`
 - ✅ `NODE_ENV=production`
 - ✅ `FRONTEND_URL=https://aaramdehi-frontend.vercel.app/`
-- ✅ `MONGODB_URI=mongodb+srv://himanshu123:IBiDUOit7Titt66D@cluster0.hs1uo20.mongodb.net/aaramdehi?retryWrites=true&w=majority&ssl=true`
+- ✅ `MONGODB_URI=mongodb+srv://Vercel-Admin-atlas-indigo-cushion:s5o3aJf4Y3wHJcqG@atlas-indigo-cushion.6qxfcuv.mongodb.net/?retryWrites=true&w=majority`
 - ✅ JWT tokens configured
 - ✅ Email credentials configured
 - ✅ Cloudinary credentials configured

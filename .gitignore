@@ -20,6 +20,9 @@ lerna-debug.log*
 dist-ssr
 *.local
 
+# Firebase service account files
+*firebase-adminsdk*.json
+
 # Editor directories and files
 !.vscode/extensions.json
 .idea

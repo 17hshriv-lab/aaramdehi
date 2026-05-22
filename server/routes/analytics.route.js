@@ -1,20 +1,9 @@
-import express from "express";
-import { isAuthenticatedUser, isAdmin } from "../middleware/auth.middleware.js";
-import {
-  getAllAnalytics,
-  getAnalyticsByDateRange,
-  recordAnalytics,
-  getAnalyticsSummary,
-  deleteAnalytics,
-} from "../controllers/analytics.controller.js";
+import { Router } from 'express';
+import { getAnalyticsSummary } from '../controllers/analytics.controller.js';
+import { isAuthenticatedUser, isAdmin } from '../middleware/auth.middleware.js';
 
-const router = express.Router();
+const router = Router();
 
-// Admin routes
-router.get("/", isAuthenticatedUser, isAdmin, getAllAnalytics);
-router.get("/summary", isAuthenticatedUser, isAdmin, getAnalyticsSummary);
-router.get("/range", isAuthenticatedUser, isAdmin, getAnalyticsByDateRange);
-router.post("/record", recordAnalytics);
-router.delete("/:id", isAuthenticatedUser, isAdmin, deleteAnalytics);
+router.get('/summary', isAuthenticatedUser, isAdmin, getAnalyticsSummary);
 
 export default router;

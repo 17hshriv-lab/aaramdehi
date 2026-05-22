@@ -99,6 +99,8 @@ TEAM: 6 functions
 - updateTeamMemberAPI, deleteTeamMemberAPI, getTeamStatsAPI
 ```
 
+- 🔧 Recent auth fix: `resetPasswordAPI` payload corrected to send `email`, `otp`, `newPassword`, and `confirmPassword`
+
 ### Phase 7: Frontend Pages ✅ DEMO COMPLETE (2 Fully Done)
 
 **Fully Functional & Tested:**

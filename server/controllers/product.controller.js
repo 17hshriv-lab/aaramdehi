@@ -1,6 +1,7 @@
-import ProductModel from "../models/product.model.js";
-import UserModel from "../models/user.model.js";
 import { uploadImageCloudinary } from "../utils/uploadImageCloudinary.js";
+import { findAll, findById, create, updateById, deleteById, findByQuery } from "../config/db.js";
+
+const COLLECTION = 'products';
 
 // ✅ 1. CREATE NEW PRODUCT
 export const createProduct = async (req, res) => {
@@ -30,9 +31,9 @@ export const createProduct = async (req, res) => {
             });
         }
 
-        // Duplicate Check
-        const existingProduct = await ProductModel.findOne({ name });
-        if (existingProduct) {
+        // Duplicate Check (Manual check for Firebase)
+        const existingProducts = await findByQuery(COLLECTION, 'name', name);
+        if (existingProducts.length > 0) {
             return res.status(409).json({ success: false, message: "Product with this name already exists" });
         }
 
@@ -53,7 +54,7 @@ export const createProduct = async (req, res) => {
             }
         }
 
-        const newProduct = new ProductModel({
+        const productData = {
             name,
             brand,
             description: description || "",
@@ -74,10 +75,10 @@ export const createProduct = async (req, res) => {
             seoKeywords: (typeof seoKeywords === 'string' && seoKeywords.trim()) ? seoKeywords.split(',').map(k => k.trim()) : [],
             slug,
             createdBy: userId || null
-        });
+        };
 
-        await newProduct.save();
-        return res.status(201).json({ success: true, message: "Product created successfully", data: newProduct });
+        const savedProduct = await create(COLLECTION, productData);
+        return res.status(201).json({ success: true, message: "Product created successfully", data: savedProduct });
 
     } catch (error) {
         console.error("❌ Error creating product:", error);
@@ -90,38 +91,48 @@ export const createProduct = async (req, res) => {
 // ✅ GET ALL PRODUCTS (Updated logic to show all data to Admin)
 export const getAllProducts = async (req, res) => {
     try {
-        const { category, page, limit, search, sort = "-createdAt" } = req.query;
+        const { category, page, limit, search, sort = "createdAt" } = req.query;
         
         const p = Number(page) || 1;
         const l = Number(limit) || 10;
         const skip = (p - 1) * l;
-        
-        let filter = {}; 
 
-        // Category filter fix: Empty string handle karna zaroori hai
+        // ✅ FIREBASE: Get all products
+        let products = await findAll(COLLECTION);
+
+        // ✅ Filter by category (client-side filtering)
         if (category && category !== "" && category !== "undefined") {
-            filter.category = category;
+            products = products.filter(prod => prod.category === category);
         }
 
-        // Search filter fix: Name aur Brand dono mein search karega
+        // ✅ Search by name or brand (client-side search)
         if (search && search !== "" && search !== "undefined") {
-            filter.$or = [
-                { name: { $regex: search, $options: 'i' } },
-                { brand: { $regex: search, $options: 'i' } }
-            ];
+            const searchLower = search.toLowerCase();
+            products = products.filter(prod => 
+                prod.name.toLowerCase().includes(searchLower) || 
+                prod.brand.toLowerCase().includes(searchLower)
+            );
         }
 
-        const products = await ProductModel.find(filter)
-            .sort(sort)
-            .skip(skip)
-            .limit(l)
-            .populate('createdBy', 'name email'); // Make sure user exists in Users collection
+        const totalProducts = products.length;
 
-        const totalProducts = await ProductModel.countDocuments(filter);
+        // ✅ Sort (client-side sorting)
+        if (sort) {
+            const sortField = sort.replace('-', '');
+            const isDesc = sort.startsWith('-');
+            products.sort((a, b) => {
+                if (a[sortField] < b[sortField]) return isDesc ? 1 : -1;
+                if (a[sortField] > b[sortField]) return isDesc ? -1 : 1;
+                return 0;
+            });
+        }
+
+        // ✅ Pagination (client-side)
+        const paginatedProducts = products.slice(skip, skip + l);
 
         return res.json({
             success: true,
-            data: products || [],
+            data: paginatedProducts || [],
             pagination: {
                 totalProducts,
                 totalPages: Math.ceil(totalProducts / l),
@@ -136,7 +147,7 @@ export const getAllProducts = async (req, res) => {
 // ✅ 3. GET SINGLE PRODUCT
 export const getProductById = async (req, res) => {
     try {
-        const product = await ProductModel.findById(req.params.id).populate('createdBy', 'name email');
+        const product = await findById(COLLECTION, req.params.id);
         if (!product) return res.status(404).json({ success: false, message: "Product not found" });
 
         return res.json({ success: true, data: product });
@@ -185,7 +196,7 @@ export const updateProduct = async (req, res) => {
             }
         }
 
-        const updatedProduct = await ProductModel.findByIdAndUpdate(id, updateData, { new: true });
+        const updatedProduct = await updateById(COLLECTION, id, updateData);
         return res.json({ success: true, message: "Updated successfully", data: updatedProduct });
     } catch (error) {
         return res.status(500).json({ success: false, error: error.message });
@@ -195,7 +206,7 @@ export const updateProduct = async (req, res) => {
 // ✅ 5. DELETE PRODUCT
 export const deleteProduct = async (req, res) => {
     try {
-        await ProductModel.findByIdAndDelete(req.params.id);
+        await deleteById(COLLECTION, req.params.id);
         return res.json({ success: true, message: "Deleted successfully" });
     } catch (error) {
         return res.status(500).json({ success: false, error: error.message });
@@ -205,18 +216,30 @@ export const deleteProduct = async (req, res) => {
 // ✅ 6. ADMIN DASHBOARD STATS
 export const getDashboardStats = async (req, res) => {
     try {
-        const totalProducts = await ProductModel.countDocuments();
-        const totalStock = await ProductModel.aggregate([
-            { $group: { _id: null, total: { $sum: "$stock" } } }
-        ]);
-        const lowStockProducts = await ProductModel.find({ stock: { $lt: 10 } }).limit(5);
-        const recentProducts = await ProductModel.find().sort({ createdAt: -1 }).limit(5);
+        // ✅ FIREBASE: Get all products
+        const allProducts = await findAll(COLLECTION);
+
+        const totalProducts = allProducts.length;
+
+        // ✅ Calculate total stock by summing all product stocks
+        const totalStock = allProducts.reduce((sum, prod) => sum + (prod.stock || 0), 0);
+
+        // ✅ Find low stock products (stock < 10)
+        const lowStockProducts = allProducts
+            .filter(prod => prod.stock < 10)
+            .sort((a, b) => a.stock - b.stock)
+            .slice(0, 5);
+
+        // ✅ Find recent products (sorted by createdAt descending)
+        const recentProducts = allProducts
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, 5);
         
         return res.json({
             success: true,
             data: { 
                 totalProducts,
-                totalStock: totalStock[0]?.total || 0,
+                totalStock,
                 lowStockProducts,
                 recentProducts
             }

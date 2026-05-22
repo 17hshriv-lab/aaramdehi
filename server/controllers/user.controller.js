@@ -1,4 +1,4 @@
-import UserModel from '../models/user.model.js';
+import { findByQuery, create, updateById, deleteById, findById, findAll } from '../config/db.js';
 import bcryptjs from 'bcryptjs';
 import sendEmail from '../config/sendEmail.js'; 
 import verifyEmailTemplate from '../utils/verifyEmailTemplate.js'; 
@@ -10,7 +10,10 @@ import generatedRefreshToken from '../utils/generatedRefreshToken.js';
 import { uploadImageCloudinary } from '../utils/uploadImageCloudinary.js'; 
 
 import generatedOtp from '../utils/generatedOtp.js'; 
-import forgotPasswordTemplate from '../utils/forgotPasswordTemplate.js'; 
+import forgotPasswordTemplate from '../utils/forgotPasswordTemplate.js';
+
+// ✅ Firebase Collection Constant
+const USERS_COLLECTION = 'users'; 
 
 // 🛡️ Backend Data Sanitization Helper
 const sanitizeString = (str) => {
@@ -45,8 +48,9 @@ export async function registerUserController(request, response) {
             return response.status(400).json({ message: "Passwords do not match", error: true, success: false });
         }
 
-        const userExist = await UserModel.findOne({ email: email.toLowerCase().trim() });
-        if (userExist) {
+        // ✅ FIREBASE: Use findByQuery to check duplicate
+        const existingUsers = await findByQuery(USERS_COLLECTION, 'email', email.toLowerCase().trim());
+        if (existingUsers && existingUsers.length > 0) {
             return response.status(400).json({ message: "Email already registered", error: true, success: false });
         }
 
@@ -62,11 +66,14 @@ export async function registerUserController(request, response) {
             password: hashedPassword,
             role: "USER", // 🛡️ सुरक्षा: हमेशा USER रोल ही दें, रिक्वेस्ट बॉडी से रोल न लें
             forgot_password_otp: verifyCode,
-            forgot_password_expiry: new Date(Date.now() + 60 * 60 * 1000) 
+            forgot_password_expiry: new Date(Date.now() + 60 * 60 * 1000),
+            verify_email: false,
+            avatar: "",
+            refresh_token: ""
         };
 
-        const newUser = new UserModel(payload);
-        await newUser.save();
+        // ✅ FIREBASE: Use create helper (returns {_id, createdAt, updatedAt, ...data})
+        const newUser = await create(USERS_COLLECTION, payload);
 
         await sendEmail({
             sendTo: email.toLowerCase().trim(),
@@ -98,11 +105,14 @@ export async function verifyEmailController(request, response) {
             return response.status(400).json({ message: "Email and OTP are required", error: true, success: false });
         }
 
-        const user = await UserModel.findOne({ email: email.toLowerCase().trim() });
-
-        if (!user) {
+        // ✅ FIREBASE: Use findByQuery to find user by email
+        const users = await findByQuery(USERS_COLLECTION, 'email', email.toLowerCase().trim());
+        
+        if (!users || users.length === 0) {
             return response.status(404).json({ message: "User not found", error: true, success: false });
         }
+
+        const user = users[0]; // Get first matching user
 
         if (String(user.forgot_password_otp) !== String(verifyCode).trim()) {
             return response.status(400).json({ message: "Invalid OTP", error: true, success: false });
@@ -112,16 +122,20 @@ export async function verifyEmailController(request, response) {
             return response.status(400).json({ message: "OTP has expired. Please register again.", error: true, success: false });
         }
 
-        user.verify_email = true;
-        user.forgot_password_otp = ""; 
-        user.forgot_password_expiry = null;
-        await user.save();
+        // ✅ FIREBASE: Use updateById helper (auto-adds updatedAt)
+        await updateById(USERS_COLLECTION, user._id, {
+            verify_email: true,
+            forgot_password_otp: "",
+            forgot_password_expiry: null
+        });
 
         const accessToken = await generatedAccessToken(user._id);
         const refreshToken = await generatedRefreshToken(user._id);
 
-        user.refresh_token = refreshToken;
-        await user.save();
+        // ✅ FIREBASE: Update refresh token
+        await updateById(USERS_COLLECTION, user._id, {
+            refresh_token: refreshToken
+        });
 
         // 🛡️ Security: Set Secure HTTP-Only Cookie for Verification success
         const cookieOptions = {
@@ -158,16 +172,22 @@ export async function verifyEmailController(request, response) {
 export async function forgotPasswordController(request, response) {
     try {
         const { email } = request.body;
-        const user = await UserModel.findOne({ email: email.toLowerCase().trim() });
-
-        if (!user) {
+        
+        // ✅ FIREBASE: Use findByQuery
+        const users = await findByQuery(USERS_COLLECTION, 'email', email.toLowerCase().trim());
+        
+        if (!users || users.length === 0) {
             return response.status(404).json({ message: "Email not found", error: true, success: false });
         }
 
+        const user = users[0];
         const otp = generatedOtp();
-        user.forgot_password_otp = otp;
-        user.forgot_password_expiry = new Date(Date.now() + 60 * 60 * 1000); 
-        await user.save();
+
+        // ✅ FIREBASE: Use updateById
+        await updateById(USERS_COLLECTION, user._id, {
+            forgot_password_otp: otp,
+            forgot_password_expiry: new Date(Date.now() + 60 * 60 * 1000)
+        });
 
         await sendEmail({
             sendTo: email.toLowerCase().trim(),
@@ -200,11 +220,14 @@ export async function resetPasswordController(request, response) {
             return response.status(400).json({ message: "Passwords do not match", error: true, success: false });
         }
 
-        const user = await UserModel.findOne({ email: email.toLowerCase().trim() });
-
-        if (!user) {
+        // ✅ FIREBASE: Use findByQuery
+        const users = await findByQuery(USERS_COLLECTION, 'email', email.toLowerCase().trim());
+        
+        if (!users || users.length === 0) {
             return response.status(404).json({ message: "User not found", error: true, success: false });
         }
+
+        const user = users[0];
 
         if (String(user.forgot_password_otp) !== String(otp).trim()) {
             return response.status(400).json({ message: "Invalid OTP", error: true, success: false });
@@ -217,10 +240,12 @@ export async function resetPasswordController(request, response) {
         const salt = await bcryptjs.genSalt(10);
         const hashedPassword = await bcryptjs.hash(newPassword, salt);
         
-        user.password = hashedPassword;
-        user.forgot_password_otp = ""; 
-        user.forgot_password_expiry = null;
-        await user.save();
+        // ✅ FIREBASE: Use updateById
+        await updateById(USERS_COLLECTION, user._id, {
+            password: hashedPassword,
+            forgot_password_otp: "",
+            forgot_password_expiry: null
+        });
 
         return response.status(200).json({ message: "Password reset successful!", error: false, success: true });
 
@@ -243,13 +268,15 @@ export async function loginController(request, response) {
             return response.status(400).json({ message: "Email and password are required", error: true, success: false });
         }
 
-        const user = await UserModel.findOne({ email: email.toLowerCase().trim() });
-
-        if (!user) {
+        // ✅ FIREBASE: Use findByQuery to find user
+        const users = await findByQuery(USERS_COLLECTION, 'email', email.toLowerCase().trim());
+        
+        if (!users || users.length === 0) {
             console.log(`❌ Login Attempt: User [${email}] not found in Database`);
             return response.status(400).json({ message: "Invalid credentials", error: true, success: false });
         }
 
+        const user = users[0];
         const isPasswordCorrect = await bcryptjs.compare(password, user.password);
 
         if (!isPasswordCorrect) {
@@ -270,13 +297,14 @@ export async function loginController(request, response) {
         const accessToken = await generatedAccessToken(user._id);
         const refreshToken = await generatedRefreshToken(user._id);
 
-        user.refresh_token = refreshToken;
-        
+        // ✅ FIREBASE: Update refresh token using updateById
         try {
-            await user.save();
+            await updateById(USERS_COLLECTION, user._id, { // Use user._id for updateById
+                refresh_token: refreshToken
+            });
         } catch (saveError) {
-            console.error("❌ Database Save Error (Check Role Enum):", saveError.message);
-            return response.status(500).json({ message: "Profile validation failed. Ensure role is 'ADMIN' or 'USER'.", error: true });
+            console.error("❌ Database Update Error:", saveError.message);
+            return response.status(500).json({ message: "Profile update failed", error: true });
         }
 
         // 🛡️ Security: Enforced Secure HTTP-Only Cookies
@@ -318,9 +346,17 @@ export async function getUserDetailsController(request, response) {
         if (!request.user) {
             return response.status(401).json({ message: "User not authenticated", success: false });
         }
-        return response.status(200).json({
+
+        return response.status(200).json({ 
             success: true,
-            user: request.user // isAuthenticatedUser middleware से आया हुआ यूजर ऑब्जेक्ट
+            user: {
+                id: request.user._id,
+                name: request.user.name,
+                email: request.user.email,
+                role: request.user.role,
+                avatar: request.user.avatar,
+                verify_email: request.user.verify_email
+            }
         });
     } catch (error) {
         return response.status(500).json({ message: error.message, error: true, success: false });
@@ -345,12 +381,13 @@ export async function uploadAvatarController(request, response) {
             return response.status(500).json({ message: "Upload to Cloudinary failed", error: true, success: false });
         }
 
-        const updateUser = await UserModel.findByIdAndUpdate(userId, { avatar: upload.url }, { new: true });
+        // ✅ FIREBASE: Use updateById
+        const updatedUser = await updateById(USERS_COLLECTION, userId, { avatar: upload.url });
 
         return response.status(200).json({ 
             message: "Avatar updated", 
             success: true, 
-            data: { avatar: updateUser.avatar } 
+            data: { avatar: updatedUser.avatar } 
         });
     } catch (error) {
         return response.status(500).json({ message: error.message, error: true, success: false });

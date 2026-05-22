@@ -1,33 +1,37 @@
-import Banner from "../models/banner.model.js";
 import { uploadImageCloudinary } from "../utils/uploadImageCloudinary.js";
+import { findAll, findById, create, updateById, deleteById, findByQuery } from "../config/db.js"; // findByQuery added
+
+const COLLECTION = 'banners';
 
 // Get all banners with filters and pagination
 export const getAllBanners = async (req, res) => {
   try {
     const { page = 1, limit = 10, category, isActive } = req.query;
-    let filter = {};
-
-    if (category) {
-      filter.category = category;
-    }
-    if (isActive !== undefined) {
-      filter.isActive = isActive === "true";
-    }
-
     const skip = (page - 1) * limit;
-    const banners = await Banner.find(filter)
-      .populate("createdBy", "name email")
-      .populate("lastModifiedBy", "name email")
-      .sort({ position: 1, createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
 
-    const total = await Banner.countDocuments(filter);
+    // Firebase se saara data lao
+    let banners = await findAll(COLLECTION);
+
+    // Manual Filtering
+    if (category) banners = banners.filter(b => b.category === category);
+    if (isActive !== undefined) {
+      const activeStatus = isActive === "true";
+      banners = banners.filter(b => b.isActive === activeStatus);
+    }
+
+    // Manual Sorting (Position low to high, then Newest first)
+    banners.sort((a, b) => {
+      if (a.position !== b.position) return (a.position || 0) - (b.position || 0);
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    const total = banners.length;
+    const paginatedBanners = banners.slice(skip, skip + parseInt(limit));
 
     return res.json({
       success: true,
       message: "Banners fetched successfully",
-      data: banners,
+      data: paginatedBanners,
       pagination: {
         total,
         page: parseInt(page),
@@ -47,10 +51,8 @@ export const getAllBanners = async (req, res) => {
 export const getBannerById = async (req, res) => {
   try {
     const { id } = req.params;
-    const banner = await Banner.findById(id)
-      .populate("createdBy", "name email")
-      .populate("lastModifiedBy", "name email");
-
+    const banner = await findById(COLLECTION, id);
+    
     if (!banner) {
       return res.status(404).json({
         success: false,
@@ -111,7 +113,7 @@ export const createBanner = async (req, res) => {
       });
     }
 
-    const banner = new Banner({
+    const bannerData = {
       title,
       image: imageUrl,
       imagePublicId,
@@ -119,25 +121,18 @@ export const createBanner = async (req, res) => {
       category: category || "promotional",
       position: parseInt(position) || 0,
       altText: altText || "",
-      startDate: startDate || new Date(),
+      startDate: startDate || new Date().toISOString(),
       endDate: endDate || null,
-      createdBy: req.user?._id || req.user?.id || req.userId, // Multi-property check for safety
-    });
+      isActive: true,
+      createdBy: req.user?._id || req.user?.id || req.userId,
+    };
 
-    // Check if createdBy was successfully assigned
-    if (!banner.createdBy) {
-        return res.status(401).json({
-            success: false,
-            message: "Authentication error: User ID not found in request context."
-        });
-    }
-
-    await banner.save();
+    const savedBanner = await create(COLLECTION, bannerData);
 
     return res.status(201).json({
       success: true,
       message: "Banner created successfully",
-      data: banner,
+      data: savedBanner,
     });
   } catch (error) {
     console.error("🔥 createBanner Controller Error:", error);
@@ -155,7 +150,8 @@ export const updateBanner = async (req, res) => {
     const { title, link, category, position, altText, isActive, startDate, endDate } =
       req.body;
 
-    const banner = await Banner.findById(id);
+    // ✅ FIX: Use Firebase findById helper instead of Mongoose Banner model
+    const banner = await findById(COLLECTION, id);
 
     if (!banner) {
       return res.status(404).json({
@@ -165,13 +161,14 @@ export const updateBanner = async (req, res) => {
     }
 
     if (title) banner.title = title;
-    if (link !== undefined) banner.link = link;
+    if (link !== undefined) banner.link = link; // Empty string bhi valid hai
     if (category) banner.category = category;
     if (position !== undefined) banner.position = position;
     if (altText !== undefined) banner.altText = altText;
-    if (isActive !== undefined) banner.isActive = isActive;
-    if (startDate) banner.startDate = startDate;
-    if (endDate) banner.endDate = endDate;
+    // ✅ FIX: Ensure isActive is a boolean even if sent as a string from FormData
+    if (isActive !== undefined) banner.isActive = isActive === "true" || isActive === true;
+    if (startDate) banner.startDate = new Date(startDate).toISOString(); // Ensure ISO string
+    if (endDate) banner.endDate = new Date(endDate).toISOString(); // Ensure ISO string
 
     if (req.file) {
       // FIX: Apply robust file check like in createBanner
@@ -190,10 +187,10 @@ export const updateBanner = async (req, res) => {
       }
       banner.image = uploadResult.url;
       banner.imagePublicId = uploadResult.public_id;
-    }
+    } // else if (req.body.image === '') { banner.image = ''; banner.imagePublicId = ''; } // Agar image clear karni ho
 
     banner.lastModifiedBy = req.user?._id || req.user?.id || req.userId;
-    await banner.save();
+    await updateById(COLLECTION, id, banner); // Firebase helper use kiya
 
     return res.json({
       success: true,
@@ -213,19 +210,11 @@ export const updateBanner = async (req, res) => {
 export const deleteBanner = async (req, res) => {
   try {
     const { id } = req.params;
-    const banner = await Banner.findByIdAndDelete(id);
-
-    if (!banner) {
-      return res.status(404).json({
-        success: false,
-        message: "Banner not found",
-      });
-    }
+    await deleteById(COLLECTION, id);
 
     return res.json({
       success: true,
       message: "Banner deleted successfully",
-      data: banner,
     });
   } catch (error) {
     return res.status(500).json({
@@ -239,22 +228,35 @@ export const deleteBanner = async (req, res) => {
 export const getActiveBanners = async (req, res) => {
   try {
     const { category } = req.query;
-    let filter = {
-      isActive: true,
-      startDate: { $lte: new Date() },
-      $or: [{ endDate: null }, { endDate: { $gte: new Date() } }],
-    };
+    const now = new Date();
 
-    if (category) {
-      filter.category = category;
-    }
+    // Firebase se saare banners fetch karein
+    let allBanners = await findAll(COLLECTION);
 
-    const banners = await Banner.find(filter).sort({ position: 1 });
+    // Manual filtering for active banners
+    const activeBanners = allBanners.filter(banner => {
+      // ✅ Robust check for boolean status (handles string "true" if data was imported incorrectly)
+      const isStatusActive = banner.isActive === true || banner.isActive === "true";
+      
+      const bannerStartDate = banner.startDate ? new Date(banner.startDate) : null;
+      const bannerEndDate = banner.endDate ? new Date(banner.endDate) : null;
+
+      const isCurrentlyActive = isStatusActive &&
+                                (bannerStartDate === null || bannerStartDate <= now) &&
+                                (bannerEndDate === null || bannerEndDate >= now);
+
+      const matchesCategory = category ? banner.category === category : true;
+
+      return isCurrentlyActive && matchesCategory;
+    });
+
+    // Sort by position
+    activeBanners.sort((a, b) => (a.position || 0) - (b.position || 0));
 
     return res.json({
       success: true,
       message: "Active banners fetched successfully",
-      data: banners,
+      data: activeBanners,
     });
   } catch (error) {
     return res.status(500).json({

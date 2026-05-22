@@ -1,33 +1,56 @@
 import { Router } from 'express';
-import {
-    getGlobalSeo,
-    updateGlobalSeo,
-    getSeoByType,
-    updateSeoByType,
-    getAllSeo
-} from '../controllers/seo.controller.js';
-
-// ✅ Named imports sahi hain
-import { isAuthenticatedUser, isAdmin } from '../middleware/auth.middleware.js';
+import { findAll } from '../config/db.js';
 
 const seoRouter = Router();
 
-/**
- * @routes - SEO API ENDPOINTS (Aaramdehi Project)
- */
+seoRouter.get('/sitemap.xml', async (req, res) => {
+    try {
+        const apiBase = process.env.FRONTEND_URL || "https://aaramdehi.com";
+        
+        // Fetch all data from Firebase
+        const products = await findAll('products');
+        const categories = await findAll('categories');
 
-// --- 1. Public Routes (Sab dekh sakte hain) ---
-seoRouter.get('/global', getGlobalSeo);  // Get global SEO
-seoRouter.get('/type/:type', getSeoByType);  // Get SEO by type
-seoRouter.get('/', getAllSeo);  // Get all SEO data
+        let xml = `<?xml version="1.0" encoding="UTF-8"?>`;
+        xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
 
+        // Static Pages
+        const staticPages = ['', '/products', '/about', '/contact', '/login'];
+        staticPages.forEach(page => {
+            xml += `
+            <url>
+                <loc>${apiBase}${page}</loc>
+                <changefreq>daily</changefreq>
+                <priority>0.8</priority>
+            </url>`;
+        });
 
-// --- 2. Protected Routes (Sirf Admin ke liye) ---
+        // Dynamic Product Pages
+        products.forEach(product => {
+            xml += `
+            <url>
+                <loc>${apiBase}/product/${product._id || product.id}</loc>
+                <lastmod>${new Date(product.updatedAt || product.createdAt).toISOString()}</lastmod>
+                <priority>0.9</priority>
+            </url>`;
+        });
 
-// ✅ FIX: 'auth' ki jagah 'isAuthenticatedUser' aur 'isAdmin' use kiya gaya hai
-seoRouter.put('/global', isAuthenticatedUser, isAdmin, updateGlobalSeo);
+        // Dynamic Category Pages
+        categories.forEach(cat => {
+            xml += `
+            <url>
+                <loc>${apiBase}/category/${cat.slug || cat.name.toLowerCase()}</loc>
+                <priority>0.7</priority>
+            </url>`;
+        });
 
-// ✅ FIX: Yahan bhi security update kar di hai
-seoRouter.put('/type/:type', isAuthenticatedUser, isAdmin, updateSeoByType);
+        xml += `</urlset>`;
+
+        res.header('Content-Type', 'application/xml');
+        res.send(xml);
+    } catch (error) {
+        res.status(500).send("Error generating sitemap");
+    }
+});
 
 export default seoRouter;

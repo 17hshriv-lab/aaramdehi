@@ -76,10 +76,11 @@ const couponSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Un users ki list jinhone ye coupon already use kar liya hai
     usedBy: [
       {
-        userId: mongoose.Schema.Types.ObjectId,
-        usageCount: { type: Number, default: 0 }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
       },
     ],
     createdBy: {

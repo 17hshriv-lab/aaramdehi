@@ -1,67 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { IoCloseOutline, IoTrashOutline } from "react-icons/io5";
 import { FiShoppingCart } from "react-icons/fi";
 import { Link } from 'react-router-dom';
+import { useCart } from '../../src/hooks/useCart'; // ✅ भाई, पाथ अपने प्रोजेक्ट फोल्डर के हिसाब से ज़रूर चेक कर लेना
 
-// ===== WISHLIST DRAWER COMPONENT =====
-// Yeh component right side se slide out hota hai jab wishlist icon click hote ho
-// Ismein liked/saved products dikhte hain, delete kar sakte ho, add to cart kar sakte ho
+// ===== WISHLIST DRAWER COMPONENT (REFACTORED) =====
+// अब यह सीधे CartContext से सिंक है। No memory leaks, no manual localStorage sync required!
 
 const WishlistDrawer = ({ isOpen, onClose }) => {
-  // localStorage se wishlist items load karna
-  const [wishlistItems, setWishlistItems] = useState([]); // Wishlist mein jo products hain
+  // ✅ पुराने स्टेट, इफेक्ट्स और अलर्ट्स हटाकर सीधे नए कस्टमाइज्ड हुक से मेथड्स निकाल लिए
+  const { wishlist, wishlistCount, removeFromWishlist, addToCart } = useCart();
 
-  // useEffect: Component load hone par localStorage ko sync karna
-  useEffect(() => {
-    // localStorage se wishlist data lana
-    const loadWishlist = () => {
-      const wishlist = JSON.parse(localStorage.getItem("wishlist")) || [];
-      console.log("📋 Wishlist loaded:", wishlist);
-      setWishlistItems(wishlist);
-    };
-
-    loadWishlist();
-
-    // Jab kisi aur component se wishlist update ho toh yeh component bhi update ho
-    window.addEventListener("wishlistUpdated", loadWishlist);
-
-    // Cleanup: component unmount hone par listener remove karna
-    return () => {
-      window.removeEventListener("wishlistUpdated", loadWishlist);
-    };
-  }, [isOpen]); // isOpen dependency add kiya taaki drawer khulne par data reload ho
-
-  // Function: Wishlist se item completely remove karna
-  const removeFromWishlist = (id) => {
-    const updatedWishlist = wishlistItems.filter(item => item.id !== id);
-    setWishlistItems(updatedWishlist);
-    localStorage.setItem("wishlist", JSON.stringify(updatedWishlist));
-    // Event trigger karo dusre components ko notify karne ke liye
-    window.dispatchEvent(new Event("wishlistUpdated"));
-  };
-
-  // Function: Wishlist se item ko cart mein move karna
-  const moveToCart = (item) => {
-    // Cart mein add karna
-    let cart = JSON.parse(localStorage.getItem("cart")) || [];
-    const isExist = cart.find(cartItem => cartItem.id === item.id);
-
-    if (isExist) {
-      cart = cart.map(cartItem => 
-        cartItem.id === item.id 
-          ? { ...cartItem, qty: cartItem.qty + 1 } 
-          : cartItem
-      );
-    } else {
-      cart.push({ ...item, qty: 1 });
-    }
-
-    localStorage.setItem("cart", JSON.stringify(cart));
-    window.dispatchEvent(new Event("cartUpdated"));
-
-    // Wishlist se remove karna
-    removeFromWishlist(item.id);
-    alert(`${item.name} moved to cart!`);
+  // Function: Wishlist से item को सीधे कार्ट में मूव करना
+  const handleMoveToCart = (item) => {
+    addToCart(item, 1); // कार्ट में 1 क्वांटिटी के साथ ऐड करें
+    removeFromWishlist(item.productId || item.id); // विशलिस्ट से हटा दें
   };
 
   return (
@@ -77,7 +30,7 @@ const WishlistDrawer = ({ isOpen, onClose }) => {
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800 uppercase tracking-tight">My Wishlist ({wishlistItems.length})</h2>
+          <h2 className="text-lg font-bold text-gray-800 uppercase tracking-tight">My Wishlist ({wishlistCount})</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <IoCloseOutline size={28} className="text-gray-500" />
           </button>
@@ -85,31 +38,31 @@ const WishlistDrawer = ({ isOpen, onClose }) => {
 
         {/* Wishlist Items List */}
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-          {wishlistItems.length > 0 ? (
-            wishlistItems.map((item) => (
-              <div key={item.id} className="flex gap-4 border-b border-gray-50 pb-4 mb-4">
+          {wishlist.length > 0 ? (
+            wishlist.map((item) => (
+              <div key={item.productId || item.id} className="flex gap-4 border-b border-gray-50 pb-4 mb-4">
                 <div className="w-20 h-24 bg-gray-100 rounded overflow-hidden flex-shrink-0">
-                  <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                  <img src={item.image} alt={item.title || item.name} className="w-full h-full object-cover" />
                 </div>
                 
                 <div className="flex-1 flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-start gap-2">
-                      <h3 className="text-[13px] font-semibold text-gray-700 leading-tight">{item.name}</h3>
+                      <h3 className="text-[13px] font-semibold text-gray-700 leading-tight">{item.title || item.name}</h3>
                       <button 
-                        onClick={() => removeFromWishlist(item.id)} 
+                        onClick={() => removeFromWishlist(item.productId || item.id)} 
                         className="text-gray-400 hover:text-red-500 transition"
                         title="Remove from wishlist"
                       >
                         <IoTrashOutline size={18} />
                       </button>
                     </div>
-                    <p className="text-orange-600 font-bold mt-1">₹{(item.price || item.newPrice || 0).toLocaleString()}</p>
+                    <p className="text-orange-600 font-bold mt-1">₹{(item.price || item.salePrice || item.newPrice || 0).toLocaleString()}</p>
                   </div>
 
                   {/* Add to Cart Button */}
                   <button
-                    onClick={() => moveToCart(item)}
+                    onClick={() => handleMoveToCart(item)}
                     className="flex items-center justify-center gap-2 mt-2 bg-blue-50 text-blue-900 px-3 py-1.5 rounded text-[11px] font-bold hover:bg-blue-100 transition-colors"
                   >
                     <FiShoppingCart size={14} />
@@ -127,12 +80,12 @@ const WishlistDrawer = ({ isOpen, onClose }) => {
         </div>
 
         {/* Bottom Section (Sticky) */}
-        {wishlistItems.length > 0 && (
+        {wishlist.length > 0 && (
           <div className="p-5 bg-gray-50 border-t border-gray-100">
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-sm text-gray-600 font-medium">
                 <span>Total Items:</span>
-                <span className="text-gray-900 font-bold">{wishlistItems.length}</span>
+                <span className="text-gray-900 font-bold">{wishlistCount}</span>
               </div>
             </div>
 

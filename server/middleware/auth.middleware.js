@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import UserModel from '../models/user.model.js';
+import { findById } from '../config/db.js';
 
 // 1. Authenticated User Middleware
 export const isAuthenticatedUser = async (req, res, next) => {
@@ -23,7 +23,7 @@ export const isAuthenticatedUser = async (req, res, next) => {
             return res.status(401).json({ message: "Invalid token payload", success: false });
         }
 
-        const user = await UserModel.findById(userId).select('-password');
+        const user = await findById('users', userId);
         if (!user) {
             return res.status(404).json({ message: "User not found", success: false });
         }

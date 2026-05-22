@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { IoCardOutline, IoSwapHorizontalOutline, IoBusiness, IoWalletOutline, IoLogoUsd, IoCheckmarkCircle } from "react-icons/io5";
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios'; // Import axios for API calls
-import MinimalCheckoutHeader from '../header/MinimalCheckoutHeader.jsx';
 
 const PaymentPage = () => {
     const location = useLocation();
@@ -124,7 +123,9 @@ const PaymentPage = () => {
 
     const sendOrderToBackend = async (payload, token) => {
         try {
-            const response = await axios.post('http://localhost:8000/api/order/create', payload, {
+            const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+            
+            const response = await axios.post(`${apiBase}/api/order/create`, payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -163,7 +164,6 @@ const PaymentPage = () => {
 
     return (
         <>
-            <MinimalCheckoutHeader currentStep={2} />
             <section className="bg-gray-100 min-h-screen py-8">
             <div className="container mx-auto px-4">
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
