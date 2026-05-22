@@ -33,8 +33,7 @@ const Header = () => {
   // --- STATE MANAGEMENT ---
   const [isCartOpen, setIsCartOpen] = useState(false); // Cart drawer open/close
   const [isWishlistOpen, setIsWishlistOpen] = useState(false); // Wishlist drawer open/close
-  const [compareCount, setCompareCount] = useState(0); // Compare mein kitne items hain
-  const { cartCount, wishlistCount } = useCart();
+  const { cartCount, wishlistCount, compareCount } = useCart(); // ✅ Assuming compare is added to useCart
 
   // Function: Cart drawer ko toggle karna (open/close)
   const toggleCartDrawer = () => {
@@ -48,17 +47,10 @@ const Header = () => {
     setIsCartOpen(false); // Cart ko close karna agar open tha
   };
 
-  // Function: Compare mein items ki count update karna
-  // Jab product add/remove hote toh compare count change ho
-  const updateCompareCount = () => {
-    const compare = JSON.parse(localStorage.getItem("compare")) || [];
-    setCompareCount(compare.length); // Compare mein total items ka count
-  };
-
   // useEffect: Component load hone par aur jab cart/wishlist/compare update ho
   useEffect(() => {
-    updateCompareCount();
-  }, []);
+    // Compare logic context se handle hogi
+  }, [compareCount]);
 
   return (
     <>

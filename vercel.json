@@ -1,8 +1,18 @@
 {
-  "rewrites": [
+  "version": 2,
+  "builds": [
+    { "src": "backend/server.js", "use": "@vercel/node" },
+    { "src": "Aaramdehi/package.json", "use": "@vercel/static-build" }
+  ],
+  "routes": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+      "src": "/api/search/(.*)",
+      "dest": "my_search_engine/main.py" 
+    },
+    {
+      "src": "/api/v1/(.*)",
+      "dest": "backend/server.js"
+    },
+    { "src": "/(.*)", "dest": "Aaramdehi/$1" }
   ]
 }
