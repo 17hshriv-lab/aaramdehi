@@ -8,6 +8,7 @@ import { FiShoppingCart } from 'react-icons/fi';
 import { BsLightningCharge } from 'react-icons/bs'; 
 import { ALL_PRODUCTS_DATA } from '../../../src/data/products';
 import { addToRecentlyViewed } from '../../../src/data/recentlyViewedUtils';
+import { useCart } from '../../../src/hooks/useCart';
 
 // ===== PRODUCT LISTING PAGE =====
 // Yeh page sare products ko grid format mein show karta hai
@@ -18,22 +19,8 @@ const ProductListing = () => {
   const [maxPrice, setMaxPrice] = useState(10000); // Max price filter
   const [sortBy, setSortBy] = useState('relevance'); // Sorting option
   const [page, setPage] = useState(1); // Current page number
-  const [wishlist, setWishlist] = useState([]); // Wishlist mein jo items hain localStorage se load honge
 
-  // --- LOAD WISHLIST FROM LOCALSTORAGE ON MOUNT ---
-  useEffect(() => {
-    const savedWishlist = JSON.parse(localStorage.getItem("wishlist")) || [];
-    setWishlist(savedWishlist);
-
-    // Event listener: jab dusre component se wishlist update ho toh yahan bhi update ho
-    const handleWishlistUpdate = () => {
-      const updatedWishlist = JSON.parse(localStorage.getItem("wishlist")) || [];
-      setWishlist(updatedWishlist);
-    };
-
-    window.addEventListener("wishlistUpdated", handleWishlistUpdate);
-    return () => window.removeEventListener("wishlistUpdated", handleWishlistUpdate);
-  }, []);
+  const { addToCart, wishlist, addToWishlist, removeFromWishlist, isInWishlist } = useCart();
 
   // Function: Product ko dekhne par recently viewed mein add karna
   const handleProductView = (product) => {
@@ -42,45 +29,18 @@ const ProductListing = () => {
 
   // Function: Product ko cart mein add karna
   const handleAddToCart = (product) => {
-    let cart = JSON.parse(localStorage.getItem("cart")) || [];
-    const isExist = cart.find(item => item.id === product.id);
-
-    if (isExist) {
-      cart = cart.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item);
-    } else {
-      cart.push({ ...product, qty: 1 });
-    }
-
-    localStorage.setItem("cart", JSON.stringify(cart));
-    window.dispatchEvent(new Event("cartUpdated"));
+    addToCart(product, 1);
     alert(`${product.name} added to Aaramdehi cart!`);
   };
 
-  // Function: Wishlist mein item add/remove karna localStorage se
   const toggleWishlist = (e, product) => {
     e.preventDefault(); 
     e.stopPropagation();
-
-    // localStorage se wishlist nikalo
-    let wishlistData = JSON.parse(localStorage.getItem("wishlist")) || [];
-    
-    // Check karo ke product already wishlist mein hai ya nahi
-    const isInWishlist = wishlistData.some(item => item.id === product.id);
-
-    if (isInWishlist) {
-      // Agar already hai toh remove karo
-      wishlistData = wishlistData.filter(item => item.id !== product.id);
+    if (isInWishlist(product.id)) {
+      removeFromWishlist(product.id);
     } else {
-      // Agar nahi hai toh add karo pura product
-      wishlistData.push(product);
+      addToWishlist(product);
     }
-
-    // localStorage mein save karo
-    localStorage.setItem("wishlist", JSON.stringify(wishlistData));
-    
-    // Update state aur event bhejo dusre components ko
-    setWishlist(wishlistData);
-    window.dispatchEvent(new Event("wishlistUpdated"));
   };
 
   // useMemo: Calculate jo products dikhane hain based on filter, sort, pagination

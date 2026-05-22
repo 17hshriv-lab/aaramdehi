@@ -11,6 +11,7 @@ import { CiHeart } from "react-icons/ci";
 import Tooltip from '@mui/material/Tooltip';
 import CartDrawer from '../CartDrawer/CartDrawer';
 import WishlistDrawer from '../WishlistDrawer/WishlistDrawer'; 
+import { useCart } from '../../src/hooks/useCart';
 
 // ===== HEADER COMPONENT =====
 // Yeh top header hai jismein logo, search, login, cart, wishlist sab dikhta hai
@@ -32,9 +33,8 @@ const Header = () => {
   // --- STATE MANAGEMENT ---
   const [isCartOpen, setIsCartOpen] = useState(false); // Cart drawer open/close
   const [isWishlistOpen, setIsWishlistOpen] = useState(false); // Wishlist drawer open/close
-  const [cartCount, setCartCount] = useState(0); // Cart mein kitne items hain
-  const [wishlistCount, setWishlistCount] = useState(0); // Wishlist mein kitne items hain
   const [compareCount, setCompareCount] = useState(0); // Compare mein kitne items hain
+  const { cartCount, wishlistCount } = useCart();
 
   // Function: Cart drawer ko toggle karna (open/close)
   const toggleCartDrawer = () => {
@@ -48,20 +48,6 @@ const Header = () => {
     setIsCartOpen(false); // Cart ko close karna agar open tha
   };
 
-  // Function: Cart mein items ki count update karna
-  // Jab product add/remove hote hauction toh count change ho
-  const updateCartCount = () => {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    setCartCount(cart.length); // Cart mein total items ka count
-  };
-
-  // Function: Wishlist mein items ki count update karna
-  // Jab product add/remove hote toh wishlist count change ho
-  const updateWishlistCount = () => {
-    const wishlist = JSON.parse(localStorage.getItem("wishlist")) || [];
-    setWishlistCount(wishlist.length); // Wishlist mein total items ka count
-  };
-
   // Function: Compare mein items ki count update karna
   // Jab product add/remove hote toh compare count change ho
   const updateCompareCount = () => {
@@ -71,26 +57,7 @@ const Header = () => {
 
   // useEffect: Component load hone par aur jab cart/wishlist/compare update ho
   useEffect(() => {
-    // Initial counts set karna
-    updateCartCount();
-    updateWishlistCount();
     updateCompareCount();
-
-    // Jab "cartUpdated" event fire hote hain tab count update karna
-    window.addEventListener("cartUpdated", updateCartCount);
-    
-    // Jab "wishlistUpdated" event fire hote hain tab count update karna
-    window.addEventListener("wishlistUpdated", updateWishlistCount);
-
-    // Jab "compareUpdated" event fire hote hain tab count update karna
-    window.addEventListener("compareUpdated", updateCompareCount);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener("cartUpdated", updateCartCount);
-      window.removeEventListener("wishlistUpdated", updateWishlistCount);
-      window.removeEventListener("compareUpdated", updateCompareCount);
-    };
   }, []);
 
   return (
