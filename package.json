@@ -64,13 +64,13 @@
   "main": "eslint.config.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/livemehimanshu/Aaramdehi.git"
+    "url": "git+https://github.com/17hshriv-lab/aaramdehi.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/livemehimanshu/Aaramdehi/issues"
+    "url": "https://github.com/17hshriv-lab/aaramdehi/issues"
   },
-  "homepage": "https://github.com/livemehimanshu/Aaramdehi#readme"
+  "homepage": "https://github.com/17hshriv-lab/aaramdehi#readme"
 }
