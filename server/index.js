@@ -21,7 +21,7 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import morgan from "morgan";
 import helmet from "helmet";
-import './config/db.js'; // Initialize Firebase
+import { findAll } from './config/db.js'; // Import Firebase helper
 
 // --- Route Imports ---
 import authRouter from './routes/auth.route.js';
@@ -45,8 +45,8 @@ const app = express();
 // 🛡️ Security: Admin-Specific Rate Limiter
 // Brute force attacks on admin panels ko rokne ke liye
 const adminLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) ? 5000 : 100,
+    windowMs: 1 * 60 * 1000, 
+    max: 50000, // Further increased for development environment
     message: {
         success: false,
         message: "Too many requests. Please try again later.",
@@ -128,6 +128,58 @@ app.get("/", (req, res) => {
     res.json({ message: "Aaramdehi Server is running!", status: "Active" });
 });
 
+async function syncAIProductsToPython() {
+    const products = await findAll('products');
+    const productsList = Array.isArray(products) ? products : Object.values(products || {});
+
+    if (!productsList || productsList.length === 0) {
+        throw new Error("No products found in Firebase to sync.");
+    }
+
+    const mappedProducts = productsList.map((p, index) => {
+        const categoryValue = typeof p?.category === 'object'
+            ? (p.category?.name || p.category?.label || "General")
+            : (p?.category || "General");
+        const sellingPrice = Number(p?.sellingPrice ?? p?.price ?? p?.mrp ?? 0);
+
+        return {
+            id: String(p?._id ?? p?.id ?? p?.key ?? `product_${index}`),
+            title: p?.name || p?.title || p?.productName || p?.label || "Untitled Product",
+            category: categoryValue || "General",
+            sellingPrice: Number.isFinite(sellingPrice) ? sellingPrice : 0,
+            thumbnail: p?.thumbnail || p?.image || (Array.isArray(p?.images) ? (p.images[0]?.url || p.images[0]) : "") || "",
+            is_essential: Boolean(p?.is_essential ?? p?.essential ?? false),
+            description: p?.description || p?.desc || "",
+        };
+    });
+
+    const pythonUrl = process.env.PYTHON_SEARCH_URL || 'http://127.0.0.1:8001/api/sync-catalog';
+    const pythonResponse = await fetch(pythonUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mappedProducts)
+    });
+
+    if (!pythonResponse.ok) {
+        const errorBody = await pythonResponse.text();
+        throw new Error(`AI Search Sync Failed: ${pythonResponse.status} ${pythonResponse.statusText} - ${errorBody}`);
+    }
+
+    return mappedProducts.length;
+}
+
+// ✅ Helper: Sync catalog with Python AI Search
+app.post("/api/admin/sync-ai-search", adminLimiter, async (req, res) => {
+    try {
+        console.log("🔄 Syncing Firebase products with AI Search Engine...");
+        const syncedCount = await syncAIProductsToPython();
+        res.json({ success: true, message: `AI Search Catalog synced successfully from Firebase! ${syncedCount} products indexed.` });
+    } catch (err) {
+        console.error("❌ AI Search sync error:", err.message);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 // --- Global Error Handler ---
 app.use((err, req, res, next) => {
     const statusCode = err.statusCode || 500;
@@ -143,7 +195,14 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 8000;
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`🚀 Server live at: http://localhost:${PORT}`);
     console.log(`🔥 Connected to Firebase Realtime Database`);
+
+    try {
+        const syncedCount = await syncAIProductsToPython();
+        console.log(`✅ Startup sync completed: ${syncedCount} products indexed to Python AI Search.`);
+    } catch (startupErr) {
+        console.warn(`⚠️ Startup AI sync failed: ${startupErr.message}`);
+    }
 });
